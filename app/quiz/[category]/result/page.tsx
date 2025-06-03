@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories } from '@/data/questions'
+import { useEffect } from 'react'
 
 interface ResultPageProps {
   params: {
@@ -19,6 +20,18 @@ export default function ResultPage({ params }: ResultPageProps) {
   const percentage = Math.round((score / total) * 100)
   
   const categoryInfo = categories.find(c => c.id === category)
+
+  useEffect(() => {
+    console.log('Result page loaded', {
+      category,
+      score: searchParams.get('score'),
+      total: searchParams.get('total'),
+      parsedScore: score,
+      parsedTotal: total,
+      percentage,
+      categoryInfo
+    })
+  }, [category, searchParams, score, total, percentage, categoryInfo])
 
   const getScoreMessage = () => {
     if (percentage >= 90) return '素晴らしい！完璧な理解です。'
