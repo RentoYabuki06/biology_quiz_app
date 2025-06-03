@@ -21,8 +21,8 @@ export default function QuizPage({ params }: QuizPageProps) {
   const [showExplanation, setShowExplanation] = useState(false)
   const [quizResults, setQuizResults] = useState<QuizResult[]>([])
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null)
-  const [startTime, setStartTime] = useState<Date>(new Date())
-  const [questionStartTime, setQuestionStartTime] = useState<Date>(new Date())
+  const [startTime] = useState<Date>(() => new Date())
+  const [questionStartTime, setQuestionStartTime] = useState<Date>(() => new Date())
 
   // カテゴリーの問題を取得
   const categoryQuestions = questions.filter(q => q.category === category)
@@ -32,7 +32,7 @@ export default function QuizPage({ params }: QuizPageProps) {
   const isLastQuestion = currentQuestionIndex === categoryQuestions.length - 1
 
   useEffect(() => {
-    if (categoryQuestions.length > 0) {
+    if (categoryQuestions.length > 0 && !quizSession) {
       setQuizSession({
         id: `quiz-${Date.now()}`,
         category,
@@ -43,7 +43,7 @@ export default function QuizPage({ params }: QuizPageProps) {
         totalQuestions: categoryQuestions.length
       })
     }
-  }, [category, categoryQuestions, startTime])
+  }, [category, categoryQuestions.length])
 
   const handleAnswerSelect = (answerIndex: number) => {
     setSelectedAnswer(answerIndex)
@@ -67,10 +67,27 @@ export default function QuizPage({ params }: QuizPageProps) {
   }
 
   const handleNextQuestion = () => {
+    console.log('handleNextQuestion clicked', { isLastQuestion, currentQuestionIndex, quizResults })
+    
     if (isLastQuestion) {
-      // クイズ終了
-      const finalResults = [...quizResults]
+      // クイズ終了 - 現在の回答結果も含めて計算する
+      const currentResult: QuizResult = {
+        questionId: currentQuestion.id,
+        selectedAnswer: selectedAnswer!,
+        isCorrect: selectedAnswer === currentQuestion.correctAnswer,
+        timeTaken: Date.now() - questionStartTime.getTime()
+      }
+      
+      const finalResults = [...quizResults, currentResult]
       const score = finalResults.filter(r => r.isCorrect).length
+      
+      console.log('Quiz finished', { 
+        score, 
+        total: categoryQuestions.length, 
+        category,
+        finalResults: finalResults.length,
+        allResults: finalResults
+      })
       
       const finalSession: QuizSession = {
         id: quizSession?.id || '',
@@ -84,13 +101,45 @@ export default function QuizPage({ params }: QuizPageProps) {
       }
 
       // 結果ページに遷移
-      router.push(`/quiz/${category}/result?score=${score}&total=${categoryQuestions.length}`)
+      const resultUrl = `/quiz/${category}/result?score=${score}&total=${categoryQuestions.length}`
+      console.log('Navigating to:', resultUrl)
+      
+      try {
+        router.push(resultUrl)
+      } catch (error) {
+        console.error('Navigation error:', error)
+      }
     } else {
       // 次の問題へ
       setCurrentQuestionIndex(prev => prev + 1)
       setSelectedAnswer(null)
       setShowExplanation(false)
       setQuestionStartTime(new Date())
+    }
+  }
+
+  const handleHomeClick = () => {
+    console.log('Home button clicked')
+    console.log('Current router state:', router)
+    console.log('Window location:', window.location.href)
+    
+    try {
+      console.log('Attempting to navigate to home...')
+      router.push('/')
+      console.log('router.push("/") called successfully')
+      
+      // 少し待ってから確認
+      setTimeout(() => {
+        if (window.location.pathname !== '/') {
+          console.log('router.push failed, trying window.location.href')
+          window.location.href = '/'
+        }
+      }, 100)
+      
+    } catch (error) {
+      console.error('Home navigation error:', error)
+      console.log('Fallback: using window.location.href')
+      window.location.href = '/'
     }
   }
 
@@ -183,9 +232,16 @@ export default function QuizPage({ params }: QuizPageProps) {
 
         {/* アクションボタン */}
         <div className="flex justify-between items-center pt-6 border-t">
-          <Link href="/" className="btn-secondary">
+          <button 
+            onClick={handleHomeClick}
+            onMouseDown={() => console.log('Home button mouse down')}
+            onMouseUp={() => console.log('Home button mouse up')}
+            className="btn-secondary"
+            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+            data-testid="home-button"
+          >
             ホームに戻る
-          </Link>
+          </button>
           
           {!showExplanation ? (
             <button
@@ -200,7 +256,7 @@ export default function QuizPage({ params }: QuizPageProps) {
               onClick={handleNextQuestion}
               className="btn-primary"
             >
-              {isLastQuestion ? '結果を見る' : '次の問題'}
+              {isLastQuestion ? '結果を確認する' : '次の問題'}
             </button>
           )}
         </div>
